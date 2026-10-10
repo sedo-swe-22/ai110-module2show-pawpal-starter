@@ -3,6 +3,23 @@
 ## 1. System Design
 
 **a. Initial design**
+- owner
+    - name, pet
+    + add a pet
+- pet
+    - name, breed, 
+    + add/edit task(s)
+- task
+    - time, priority, preference, frequencies
+- scheduler
+    + generate a daily schedule/plan
+    + display a daily schedule/plan
+    + add owner
+
+
++ Add Owner + Pet info
++ Add/Edit a task with duration and proirity
++ Generate a daily schedule/plan based on constraints and priorities cleanly
 
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
