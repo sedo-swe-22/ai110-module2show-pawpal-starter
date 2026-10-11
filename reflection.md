@@ -24,10 +24,30 @@
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
 
+**Initial UML design**
+
+The design has four classes in a simple chain. An `Owner` has many `Pet`s, and each `Pet` has many `Task`s. A `Scheduler` reads an owner's pets and tasks and produces a daily plan. The data classes (`Owner`, `Pet`, `Task`) only store information. All the scheduling logic sits in one place, `Scheduler`.
+
+**Classes and responsibilities**
+
+- **Owner** holds the owner's name, their `available_minutes` for the day, and their list of pets. The available time is the main constraint the scheduler works within. Its one method, `add_pet`, covers the requirement to enter owner and pet info.
+- **Pet** holds the pet's name, breed, and its list of tasks. It manages those tasks through `add_task`, `edit_task` and `remove_task`, so users can add and edit tasks.
+- **Task** is a single care activity. It stores the title, duration, priority, preferred time, frequency, and which pet it belongs to. It also stores the scheduler's results, `scheduled_time` and `reason`, so a plan can explain itself.
+- **Scheduler** has no state of its own. `generate_schedule(owner)` picks and orders tasks by priority and the owner's available time, and fills in each task's `scheduled_time` and `reason`. `display_schedule(tasks)` shows the plan clearly.
+
+**Design choice:** I kept the scheduling logic out of the data classes so it can change without touching them. I kept the number of classes at four to stay simple. The cost is that `Task` carries both input and output fields, and tasks that didn't fit have nowhere to record why.
+
 **b. Design changes**
 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
+
+The design changed after I reviewed my skeleton against the project requirements. I simplified it to match what the brief asks for:
+
+- **Added to match the requirements:** `Task.completed` and `Task.mark_complete()`, `Task.due_date` for recurring tasks, `Owner.get_all_tasks()`, and Scheduler methods for sorting, filtering, conflict detection and completing recurring tasks. The Scheduler now holds an `Owner` and reads every pet's tasks through `get_all_tasks()`.
+- **Removed:** `Owner.available_minutes`, `Task.preferred_time`, `Task.scheduled_time`, `Task.reason`, `Task.duration_minutes` and `Scheduler.generate_schedule` and `display_schedule`. A time-budget scheduler with explanations was more complex than the project needs, which schedules by exact `"HH:MM"` time.
+- **Removed `Task.pet`:** the two-way link between `Task` and `Pet` was hard to keep in sync. The Scheduler can find a task's pet while looping over `owner.pets`.
+- **Kept to four classes:** every feature fits in `Task`, `Pet`, `Owner` or `Scheduler`, so extra classes such as a plan or priority class were unnecessary. `priority` stays a plain attribute on `Task`.
 
 ---
 
