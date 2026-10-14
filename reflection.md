@@ -69,13 +69,24 @@ The design changed after I reviewed my skeleton against the project requirements
 
 **a. How you used AI**
 
-- How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
-- What kinds of prompts or questions were most helpful?
+I used Claude Code across the whole workflow rather than for one step:
+
+- **Design:** turning my UML into class skeletons, then reviewing those skeletons against the project requirements.
+- **Implementation:** filling in the `Task`, `Pet`, `Owner` and `Scheduler` logic and a CLI demo (`main.py`).
+- **Tests and docs:** drafting two simple unit tests, adding one-line docstrings to every method, and writing the README implementation summary.
+
+The most helpful prompts were small and specific, such as "draft two simple tests: task completion and task addition", or "add 1-line docstrings to the methods". Each one gave a short result I could read in full. Asking the AI to review my skeleton against the requirements was also useful, because it surfaced where my first design had drifted from what the brief asked for.
 
 **b. Judgment and verification**
 
-- Describe one moment where you did not accept an AI suggestion as-is.
-- How did you evaluate or verify what the AI suggested?
+- **What the AI suggested:** my first UML was a time-budget scheduler. It had `Owner.available_minutes`, `Task.duration_minutes`, `scheduled_time` and `reason` fields, and `generate_schedule` / `display_schedule` methods that would pick tasks by priority and explain the plan. The requirements review pointed out that this was more than the project needs, and that the project schedules by exact `"HH:MM"` time.
+- **What I accepted:** removing those fields and methods, and adding `Task.completed`, `Task.due_date`, `Owner.get_all_tasks()` and the Scheduler's sorting, filtering, conflict-detection and recurrence methods.
+- **What I rejected:** adding extra classes (a plan class, a priority class). Every feature fits in the four existing classes, so `priority` stays a plain attribute on `Task`. I also dropped the two-way `Task.pet` link because it was hard to keep in sync with `Pet.tasks`.
+- **How I verified it:**
+  - I ran the CLI demo in `main.py`, which exercises today's schedule, a deliberate 08:00 conflict between two pets, and a daily task being completed and rescheduled.
+  - I ran the two unit tests with `python -m pytest tests/ -v` (both pass). They check that `mark_complete()` changes a task's status and that `add_task()` increases a pet's task count.
+  - After the docstring pass, I re-ran the tests to confirm nothing changed in behavior.
+  - I checked the generated docstrings and README summary against the code, since they should describe what the methods actually do.
 
 ---
 

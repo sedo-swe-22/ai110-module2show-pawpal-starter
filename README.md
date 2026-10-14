@@ -22,6 +22,17 @@ Your final app should:
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
 
+## Implementation summary
+
+The core logic lives in `pawpal_system.py` (no UI dependencies), with `main.py` as a CLI demo and `tests/test_pawpal.py` for unit tests.
+
+- **`Task`**: a dataclass for one care item (description, `"HH:MM"` time, frequency of `once`/`daily`/`weekly`, due date, priority, completed flag). `mark_complete()` sets its status.
+- **`Pet`**: a dataclass that owns a list of `Task`s and exposes `add_task()` / `remove_task()`.
+- **`Owner`**: a dataclass that owns a list of `Pet`s. `get_all_tasks()` flattens every pet's tasks into one list.
+- **`Scheduler`**: takes an `Owner` and works over `owner.get_all_tasks()`. It builds today's schedule (incomplete tasks due today, sorted by time), filters by pet and/or completion, detects conflicts (tasks sharing a date and time), and handles recurrence: `mark_task_complete()` completes a task and, for `daily`/`weekly` tasks, adds a copy due 1 or 7 days later to the pet.
+
+Flow: `Owner` → has many `Pet` → has many `Task`; `Scheduler` reads across that hierarchy and is the only class that makes scheduling decisions.
+
 ## Getting started
 
 ### Setup
