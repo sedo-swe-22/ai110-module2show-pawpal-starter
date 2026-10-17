@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 
@@ -13,6 +13,10 @@ class Task:
     due_date: date = field(default_factory=date.today)
     completed: bool = False
     priority: str = "medium"  # "low", "medium", or "high"
+
+    def __post_init__(self) -> None:
+        """Normalize time to zero-padded HH:MM and reject invalid times."""
+        self.time = datetime.strptime(self.time, "%H:%M").strftime("%H:%M")
 
     def mark_complete(self) -> None:
         """Mark this task as completed."""
@@ -64,8 +68,9 @@ class Scheduler:
         return self.sort_by_time(tasks)
 
     def sort_by_time(self, tasks: list[Task]) -> list[Task]:
-        """Return the tasks sorted by their HH:MM time."""
-        return sorted(tasks, key=lambda t: t.time)
+        """Return the tasks sorted by time, with higher priority first on ties."""
+        rank = {"high": 0, "medium": 1, "low": 2}
+        return sorted(tasks, key=lambda t: (t.time, rank.get(t.priority, 1)))
 
     def filter_tasks(
         self, pet_name: Optional[str] = None, completed: Optional[bool] = None
@@ -74,7 +79,13 @@ class Scheduler:
         if pet_name is None:
             tasks = self.owner.get_all_tasks()
         else:
-            tasks = [t for p in self.owner.pets if p.name == pet_name for t in p.tasks]
+            wanted = pet_name.casefold()
+            tasks = [
+                t
+                for p in self.owner.pets
+                if p.name.casefold() == wanted
+                for t in p.tasks
+            ]
         if completed is not None:
             tasks = [t for t in tasks if t.completed == completed]
         return tasks
@@ -91,7 +102,12 @@ class Scheduler:
         ]
 
     def mark_task_complete(self, pet: Pet, task: Task) -> Optional[Task]:
-        """Complete a task and, if recurring, add and return the next occurrence."""
+        """Complete a task and, if recurring, add and return the next occurrence.
+
+        Completing an already-completed task is a no-op, so it never spawns duplicates.
+        """
+        if task.completed:
+            return None
         task.mark_complete()
         days = {"daily": 1, "weekly": 7}.get(task.frequency)
         if days is None:
