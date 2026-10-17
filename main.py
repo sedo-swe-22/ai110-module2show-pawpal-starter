@@ -14,6 +14,7 @@ rex.add_task(Task("Evening play", "18:00", priority="low"))
 mia.add_task(Task("Feed", "08:00", priority="high"))  # conflicts with Rex's walk
 mia.add_task(Task("Brush", "07:15", frequency="weekly"))
 mia.add_task(Task("Medication", "9:00"))  # normalized to 09:00
+mia.add_task(Task("Play", "09:00"))  # conflicts with Mia's own Medication
 
 scheduler = Scheduler(owner)
 

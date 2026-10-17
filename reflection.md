@@ -58,10 +58,16 @@ The design changed after I reviewed my skeleton against the project requirements
 - What constraints does your scheduler consider (for example: time, priority, preferences)?
 - How did you decide which constraints mattered most?
 
+The scheduler considers three things: the due date and `"HH:MM"` time of each task, its priority, and whether it is completed. Time matters most because a daily plan is an ordered list and conflicts depend on it, so tasks sort by time first. Priority is only a tie-breaker, so the more important of two same-time tasks is listed first. Completion decides what appears in today's schedule and when a recurring task spawns its next occurrence. I dropped the original idea of an owner time budget and task preferences because the project schedules by exact time, and those would have added complexity without changing the core behavior.
+
 **b. Tradeoffs**
 
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
+
+**Tradeoff: exact-time conflicts only.** `detect_conflicts()` flags two tasks only when they share the same date and the same `"HH:MM"` start. Tasks have no duration, so a 30-minute walk at 08:00 and a feeding at 08:15 are not reported even though they overlap. I chose this because it is one pass over the tasks with a dictionary, it never raises, and the warning is easy to read. Modelling durations would need a `duration` field and an interval-overlap check (sort by start, compare each end to the next start), which is more than this app needs. A pet owner usually sets tasks at distinct times, and a missed overlap is a warning that wasn't shown, not a crash.
+
+**Simplification review.** I asked how `detect_conflicts()` could be simpler. The suggestion was `defaultdict(list)` in place of `dict.setdefault(...)`, which I kept because it is shorter and still obvious to read. A fully compressed version (`itertools.groupby` over a sorted list, or a `Counter` plus comprehension) was more "Pythonic" but harder to follow, so I kept the explicit loop. The warning also now names the pet (`Rex: Walk, Mia: Feed`) so the owner knows who each task belongs to.
 
 ---
 
@@ -97,10 +103,20 @@ The most helpful prompts were small and specific, such as "draft two simple test
 - What behaviors did you test?
 - Why were these tests important?
 
+I wrote 20 tests in `tests/test_pawpal.py` for the four target features:
+- **Sorting:** times like `"9:00"` are normalized so they sort correctly, invalid times are rejected, and same-time tasks order by priority.
+- **Filtering:** by pet name (case-insensitive), by completion status, and by both.
+- **Recurring tasks:** a daily task recurs the next day, a weekly task in seven days, a late task recurs from today instead of the past, an early one keeps its future schedule, a one-off task does not recur, and completing twice does not create a duplicate.
+- **Conflicts:** same time for different pets, same time for one pet, and the same time on different dates (no conflict).
+
+These matter because each one covers a rule where a bug would silently give the owner a wrong plan, such as a missed task or a duplicated one.
+
 **b. Confidence**
 
 - How confident are you that your scheduler works correctly?
 - What edge cases would you test next if you had more time?
+
+I am fairly confident in the scheduling logic, since all 20 tests pass and the `main.py` demo behaves as expected. I am less sure of the Streamlit layer, which I have not tested automatically. With more time I would test overlapping durations, completed tasks still counting toward a conflict, month-end and year-end dates for recurring tasks, removing a task from a pet, and invalid `priority` or `frequency` values, which are not validated yet.
 
 ---
 
@@ -110,10 +126,16 @@ The most helpful prompts were small and specific, such as "draft two simple test
 
 - What part of this project are you most satisfied with?
 
+Keeping all scheduling decisions in `Scheduler` while `Task`, `Pet` and `Owner` only store data. It made each feature small to add and easy to test, and the recurring-task and conflict rules are each a few lines.
+
 **b. What you would improve**
 
 - If you had another iteration, what would you improve or redesign?
 
+I would add task durations so conflict detection can find overlapping ranges, validate `priority` and `frequency`, and show overdue tasks in the schedule. I would also add an automated test for the Streamlit flow.
+
 **c. Key takeaway**
 
 - What is one important thing you learned about designing systems or working with AI on this project?
+
+AI is fastest when the request is small and checkable, and my review is what keeps the design right. Reviewing against the requirements cut my over-built first design, and reading the generated code found real edge cases (duplicate recurrence, unpadded times) that the first version missed.

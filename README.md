@@ -55,14 +55,55 @@ pip install -r requirements.txt
 
 ## 🖥️ Sample Output
 
-Paste a sample of your app's CLI or Streamlit output here so a reader can see what a generated plan looks like:
+Output of `python main.py` (tasks added out of order, then sorted, checked for conflicts, completed and filtered):
 
 ```
-# e.g.:
-# Daily plan for Biscuit (Golden Retriever):
-#   08:00 — Morning walk (30 min) [priority: high]
-#   09:00 — Feeding (10 min) [priority: high]
-#   ...
+As added (unsorted):
+  14:30  Vet visit     [todo]
+  08:00  Walk          [todo]
+  18:00  Evening play  [todo]
+  08:00  Feed          [todo]
+  07:15  Brush         [todo]
+  09:00  Medication    [todo]
+  09:00  Play          [todo]
+
+Sorted by time:
+  07:15  Brush         [todo]
+  08:00  Feed          [todo]
+  08:00  Walk          [todo]
+  09:00  Medication    [todo]
+  09:00  Play          [todo]
+  14:30  Vet visit     [todo]
+  18:00  Evening play  [todo]
+
+Today's schedule:
+  07:15  Brush         [todo]
+  08:00  Feed          [todo]
+  08:00  Walk          [todo]
+  09:00  Medication    [todo]
+  09:00  Play          [todo]
+  14:30  Vet visit     [todo]
+  18:00  Evening play  [todo]
+
+Conflicts:
+  Conflict at 08:00 on 2026-10-16: Rex: Walk, Mia: Feed
+  Conflict at 09:00 on 2026-10-16: Mia: Medication, Mia: Play
+
+Completed 'Walk'; next due 2026-10-17
+
+Filtered: pet 'rex' (case-insensitive):
+  14:30  Vet visit     [todo]
+  08:00  Walk          [done]
+  18:00  Evening play  [todo]
+  08:00  Walk          [todo]
+
+Filtered: completed:
+  08:00  Walk          [done]
+
+Filtered: Rex, pending:
+  14:30  Vet visit     [todo]
+  18:00  Evening play  [todo]
+  08:00  Walk          [todo]
 ```
 
 ## 🧪 Testing PawPal+
@@ -78,28 +119,29 @@ pytest --cov
 Sample test output:
 
 ```
-# Paste your pytest output here
+20 passed in 0.02s
 ```
+
+The 20 tests cover time normalization and validation, priority tie-breaks, filtering by pet and status, recurring daily/weekly dates (including late, early and repeat completion), and conflicts for one pet, several pets and different dates.
 
 ## 📐 Smarter Scheduling
 
-> Fill in once you've implemented scheduling logic.
-
 | Feature | Method(s) | Notes |
 |---------|-----------|-------|
-| Task sorting | | e.g., by priority, duration |
-| Filtering | | e.g., skip tasks if time runs out |
-| Conflict handling | | e.g., overlapping time slots |
-| Recurring tasks | | e.g., daily vs. weekly |
+| Task sorting | `Scheduler.sort_by_time()`, `Scheduler.get_todays_schedule()` | Sorts by `"HH:MM"` (times are normalized to zero-padded form in `Task.__post_init__`, invalid times raise `ValueError`); ties go to the higher priority. |
+| Filtering | `Scheduler.filter_tasks(pet_name, completed)` | Filter by pet name (case-insensitive), completion status, or both. |
+| Conflict handling | `Scheduler.detect_conflicts()` | One pass groups tasks by date and time and returns a warning string per clash, naming each pet. Works for one pet or several; it never raises. Only exact start times are compared, not durations. |
+| Recurring tasks | `Scheduler.mark_task_complete()` | Completing a `daily`/`weekly` task adds a copy due `max(due_date, today)` + 1 or 7 days (`timedelta`). Completing a task twice does not duplicate it. |
 
 ## 📸 Demo Walkthrough
 
 Describe your app in numbered steps so a reader can follow along without watching a video:
 
-1. <!-- Describe this step -->
-2. <!-- Describe this step -->
-3. <!-- Describe this step -->
-4. <!-- Describe this step -->
-5. <!-- Add more steps as needed -->
+1. Run `streamlit run app.py`.
+2. Enter the owner name and add one or more pets (name and breed).
+3. Pick a pet and add tasks with a description, an `HH:MM` time, a frequency (`once`, `daily`, `weekly`) and a priority. Malformed times are rejected.
+4. Review the task table and today's schedule, which is sorted by time (higher priority first on ties).
+5. Check the conflict warnings; two tasks at the same date and time are flagged, for the same pet or different pets.
+6. Mark a recurring task complete and see its next occurrence appear on its new due date.
 
 **Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->

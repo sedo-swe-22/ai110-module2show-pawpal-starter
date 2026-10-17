@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
 from typing import Optional
@@ -58,7 +59,7 @@ class Scheduler:
         self.owner = owner
 
     def get_todays_schedule(self) -> list[Task]:
-        """Return today's incomplete tasks sorted by time."""
+        """Return today's incomplete tasks, ordered by time then priority."""
         today = date.today()
         tasks = [
             t
@@ -75,7 +76,11 @@ class Scheduler:
     def filter_tasks(
         self, pet_name: Optional[str] = None, completed: Optional[bool] = None
     ) -> list[Task]:
-        """Return tasks optionally filtered by pet name and completion status."""
+        """Return tasks filtered by pet name and/or completion status.
+
+        pet_name is matched case-insensitively; either filter may be None to skip
+        it. Tasks of every due date are included.
+        """
         if pet_name is None:
             tasks = self.owner.get_all_tasks()
         else:
@@ -91,19 +96,28 @@ class Scheduler:
         return tasks
 
     def detect_conflicts(self) -> list[str]:
-        """Return messages for tasks sharing the same date and time."""
-        slots: dict[tuple[date, str], list[str]] = {}
-        for t in self.owner.get_all_tasks():
-            slots.setdefault((t.due_date, t.time), []).append(t.description)
+        """Return a warning for each date/time slot holding more than one task.
+
+        Lightweight strategy: group tasks by (due_date, time) in one pass and warn
+        about any group larger than one. It covers tasks for the same pet or for
+        different pets, never raises, and only matches exact start times (task
+        durations are not modelled, so overlapping ranges are not detected).
+        """
+        slots: defaultdict[tuple[date, str], list[str]] = defaultdict(list)
+        for pet in self.owner.pets:
+            for t in pet.tasks:
+                slots[(t.due_date, t.time)].append(f"{pet.name}: {t.description}")
         return [
-            f"Conflict at {time} on {due}: {', '.join(names)}"
-            for (due, time), names in slots.items()
-            if len(names) > 1
+            f"Conflict at {time} on {due}: {', '.join(entries)}"
+            for (due, time), entries in slots.items()
+            if len(entries) > 1
         ]
 
     def mark_task_complete(self, pet: Pet, task: Task) -> Optional[Task]:
         """Complete a task and, if recurring, add and return the next occurrence.
 
+        The next due date is max(due_date, today) plus the interval, so a late task
+        never spawns an occurrence in the past and an early one keeps its schedule.
         Completing an already-completed task is a no-op, so it never spawns duplicates.
         """
         if task.completed:
@@ -112,8 +126,9 @@ class Scheduler:
         days = {"daily": 1, "weekly": 7}.get(task.frequency)
         if days is None:
             return None
+        base = max(task.due_date, date.today())
         next_task = replace(
-            task, due_date=task.due_date + timedelta(days=days), completed=False
+            task, due_date=base + timedelta(days=days), completed=False
         )
         pet.add_task(next_task)
         return next_task

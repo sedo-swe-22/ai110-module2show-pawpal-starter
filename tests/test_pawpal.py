@@ -112,3 +112,40 @@ def test_no_conflict_on_different_dates():
     buddy.add_task(Task("Walk", "08:00"))
     buddy.add_task(Task("Walk", "08:00", due_date=date.today() + timedelta(days=1)))
     assert sched.detect_conflicts() == []
+
+
+def test_daily_due_today_recurs_tomorrow():
+    sched, buddy, _ = make_scheduler()
+    task = Task("Walk", "08:00", frequency="daily")
+    buddy.add_task(task)
+    assert sched.mark_task_complete(buddy, task).due_date == date.today() + timedelta(days=1)
+
+
+def test_weekly_due_today_recurs_in_seven_days():
+    sched, buddy, _ = make_scheduler()
+    task = Task("Groom", "10:00", frequency="weekly")
+    buddy.add_task(task)
+    assert sched.mark_task_complete(buddy, task).due_date == date.today() + timedelta(days=7)
+
+
+def test_late_daily_task_recurs_from_today_not_the_past():
+    sched, buddy, _ = make_scheduler()
+    task = Task("Walk", "08:00", frequency="daily", due_date=date.today() - timedelta(days=3))
+    buddy.add_task(task)
+    assert sched.mark_task_complete(buddy, task).due_date == date.today() + timedelta(days=1)
+
+
+def test_early_completion_keeps_future_schedule():
+    sched, buddy, _ = make_scheduler()
+    tomorrow = date.today() + timedelta(days=1)
+    task = Task("Walk", "08:00", frequency="daily", due_date=tomorrow)
+    buddy.add_task(task)
+    assert sched.mark_task_complete(buddy, task).due_date == tomorrow + timedelta(days=1)
+
+
+def test_conflict_for_same_pet_names_the_pet():
+    sched, buddy, _ = make_scheduler()
+    buddy.add_task(Task("Walk", "08:00"))
+    buddy.add_task(Task("Bath", "08:00"))
+    (warning,) = sched.detect_conflicts()
+    assert "Buddy: Walk" in warning and "Buddy: Bath" in warning
