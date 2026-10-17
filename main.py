@@ -34,6 +34,11 @@ print("\nConflicts:")
 for warning in scheduler.detect_conflicts():
     print(f"  {warning}")
 
+print("\nConflicts with suggested free slots:")
+for warning in scheduler.detect_conflicts(suggest=True):
+    print(f"  {warning}")
+print(f"\nNext free slot from 08:00: {scheduler.next_available_slot(after='08:00')}")
+
 nxt = scheduler.mark_task_complete(rex, walk)
 print(f"\nCompleted 'Walk'; next due {nxt.due_date}")
 

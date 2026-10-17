@@ -321,3 +321,132 @@ def test_removing_missing_task_raises():
     pet = Pet("Buddy", "Lab")
     with pytest.raises(ValueError):
         pet.remove_task(Task("Walk", "08:00"))
+
+
+# ---- Next available slot ----
+
+def test_next_available_slot_on_an_empty_day_is_the_start():
+    sched, _, _ = make_scheduler()
+    assert sched.next_available_slot() == "00:00"
+    assert sched.next_available_slot(after="08:00") == "08:00"
+
+
+def test_next_available_slot_skips_taken_times():
+    sched, buddy, mia = make_scheduler()
+    buddy.add_task(Task("Walk", "08:00"))
+    mia.add_task(Task("Feed", "08:15"))
+    assert sched.next_available_slot(after="08:00") == "08:30"
+    assert sched.next_available_slot(after="08:00", step_minutes=60) == "09:00"
+
+
+def test_next_available_slot_ignores_completed_tasks_and_other_dates():
+    sched, buddy, _ = make_scheduler()
+    done = Task("Walk", "08:00")
+    done.mark_complete()
+    buddy.add_task(done)
+    buddy.add_task(Task("Feed", "08:15", due_date=date.today() + timedelta(days=1)))
+    assert sched.next_available_slot(after="08:00") == "08:00"
+    assert sched.next_available_slot(after="08:15") == "08:15"
+
+
+def test_next_available_slot_is_none_when_day_is_full():
+    sched, buddy, _ = make_scheduler()
+    buddy.add_task(Task("A", "00:00"))
+    buddy.add_task(Task("B", "12:00"))
+    assert sched.next_available_slot(step_minutes=720) is None
+    assert sched.next_available_slot(after="23:45") == "23:45"
+
+
+def test_next_available_slot_rejects_bad_arguments():
+    sched, _, _ = make_scheduler()
+    with pytest.raises(ValueError):
+        sched.next_available_slot(step_minutes=0)
+    with pytest.raises(ValueError):
+        sched.next_available_slot(after="25:00")
+
+
+def test_conflict_warning_can_suggest_a_free_slot():
+    sched, buddy, mia = make_scheduler()
+    buddy.add_task(Task("Walk", "08:00"))
+    mia.add_task(Task("Feed", "08:00"))
+    mia.add_task(Task("Brush", "08:15"))
+    (plain,) = sched.detect_conflicts()
+    (hint,) = sched.detect_conflicts(suggest=True)
+    assert "Next free slot" not in plain
+    assert hint.startswith(plain) and hint.endswith("Next free slot: 08:30.")
+
+
+def test_conflict_suggestion_when_no_slot_is_left():
+    sched, buddy, mia = make_scheduler()
+    buddy.add_task(Task("Walk", "23:45"))
+    mia.add_task(Task("Feed", "23:45"))
+    (hint,) = sched.detect_conflicts(suggest=True)
+    assert hint.endswith("No free slot left that day.")
+
+
+# ---- Persistence ----
+
+def sample_owner():
+    owner = Owner(name="Sam")
+    rex = Pet("Rex", "Lab")
+    mia = Pet("Mia", "Tabby")
+    owner.add_pet(rex)
+    owner.add_pet(mia)
+    rex.add_task(Task("Walk", "08:00", frequency="daily", priority="high"))
+    done = Task("Feed", "09:00", due_date=date(2026, 1, 31))
+    done.mark_complete()
+    rex.add_task(done)
+    return owner
+
+
+def test_json_round_trip_preserves_everything(tmp_path):
+    path = tmp_path / "data.json"
+    original = sample_owner()
+    original.save_to_json(path)
+    loaded = Owner.load_from_json(path)
+    assert loaded == original
+    assert loaded.pets[0].tasks[1].due_date == date(2026, 1, 31)
+    assert loaded.pets[0].tasks[1].completed is True
+    assert loaded.pets[1].tasks == []
+
+
+def test_save_overwrites_and_leaves_no_temp_files(tmp_path):
+    path = tmp_path / "data.json"
+    sample_owner().save_to_json(path)
+    Owner(name="Empty").save_to_json(path)
+    assert Owner.load_from_json(path) == Owner(name="Empty")
+    assert [p.name for p in tmp_path.iterdir()] == ["data.json"]
+
+
+def test_loaded_data_still_schedules(tmp_path):
+    path = tmp_path / "data.json"
+    owner = sample_owner()
+    owner.save_to_json(path)
+    sched = Scheduler(Owner.load_from_json(path))
+    walk = sched.owner.pets[0].tasks[0]
+    nxt = sched.mark_task_complete(sched.owner.pets[0], walk)
+    assert nxt.due_date == date.today() + timedelta(days=1)
+
+
+def test_load_missing_file_raises(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        Owner.load_from_json(tmp_path / "nope.json")
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "not json at all",
+        "[]",
+        '{"pets": []}',
+        '{"name": "Sam", "pets": [{"name": "Rex", "breed": "Lab", "tasks": '
+        '[{"description": "Walk", "time": "99:99", "due_date": "2026-01-01"}]}]}',
+        '{"name": "Sam", "pets": [{"name": "Rex", "breed": "Lab", "tasks": '
+        '[{"description": "Walk", "time": "08:00", "due_date": "yesterday"}]}]}',
+    ],
+)
+def test_load_rejects_invalid_files_with_value_error(tmp_path, content):
+    path = tmp_path / "data.json"
+    path.write_text(content)
+    with pytest.raises(ValueError):
+        Owner.load_from_json(path)

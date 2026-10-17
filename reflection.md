@@ -89,10 +89,24 @@ The most helpful prompts were small and specific, such as "draft two simple test
 - **What I accepted:** removing those fields and methods, and adding `Task.completed`, `Task.due_date`, `Owner.get_all_tasks()` and the Scheduler's sorting, filtering, conflict-detection and recurrence methods.
 - **What I rejected:** adding extra classes (a plan class, a priority class). Every feature fits in the four existing classes, so `priority` stays a plain attribute on `Task`. I also dropped the two-way `Task.pet` link because it was hard to keep in sync with `Pet.tasks`.
 - **How I verified it:**
-  - I ran the CLI demo in `main.py`, which exercises today's schedule, a deliberate 08:00 conflict between two pets, and a daily task being completed and rescheduled.
-  - I ran the two unit tests with `python -m pytest tests/ -v` (both pass). They check that `mark_complete()` changes a task's status and that `add_task()` increases a pet's task count.
-  - After the docstring pass, I re-ran the tests to confirm nothing changed in behavior.
+  - I ran the CLI demo in `main.py`, which exercises sorting, same-pet and cross-pet conflicts, filtering, and a daily task being completed and rescheduled.
+  - I ran the test suite with `python -m pytest` (63 tests, all passing). It started as two simple tests and grew to cover sorting, filtering, recurrence, conflicts, next-free-slot and persistence.
+  - After each change I re-ran the tests to confirm behavior did not regress.
   - I checked the generated docstrings and README summary against the code, since they should describe what the methods actually do.
+
+**c. AI strategy**
+
+- **Most effective features:**
+  - Plan mode for the larger steps. It forced a short plan and one decision (the recurrence date rule) before any code changed.
+  - Reading the existing code before suggesting anything. Many requested features already existed, and the AI said so instead of rewriting them.
+  - Running `pytest` and `main.py` after each change, so every claim came with output.
+  - Small, specific requests (a docstring pass, a list of edge cases, one table in the README).
+- **A suggestion I modified or rejected:**
+  - The brief said a daily task's next date should be "today + 1 day". Applied literally, completing a task early pulls the next one earlier, and completing it late is fine only by accident. I chose `max(due_date, today)` + interval instead and added tests for late and early completion.
+  - For `detect_conflicts` I kept an explicit loop with `defaultdict` and rejected a `groupby` or `Counter` one-liner, because it was shorter but harder to read.
+  - I also did not add duration-overlap conflict detection. It is out of scope for the project, and the exact-time limit is documented in section 2b.
+- **Separate chat sessions for planning and implementing:** I used one session to plan (requirements, UML, a test plan, the open decisions) and a different session to implement. Planning in its own session kept the conversation focused on what to build, without code diffs and test output crowding it. Implementing in a fresh session meant I started from a short written plan instead of a long back-and-forth, so the AI stayed on the task and I could check each change against the plan. It also made mistakes easier to spot: when the implementation drifted from the plan, I could see exactly where.
+- **Being the lead architect:** the AI is fast and often right, but it does not know what the project is for. My job was to set the boundaries (four classes, exact-time scheduling, no extra layers), decide the open questions (reject invalid input, ignore completed tasks in conflicts), and verify the results with tests rather than trust the summary.
 
 ---
 
@@ -103,7 +117,7 @@ The most helpful prompts were small and specific, such as "draft two simple test
 - What behaviors did you test?
 - Why were these tests important?
 
-I wrote 47 tests in `tests/test_pawpal.py` for the four target features:
+I wrote 63 tests in `tests/test_pawpal.py`, covering the four target features plus the next-free-slot and persistence extras:
 - **Sorting:** times like `"9:00"` are normalized so they sort correctly, invalid times are rejected, and same-time tasks order by priority.
 - **Filtering:** by pet name (case-insensitive), by completion status, and by both.
 - **Recurring tasks:** a daily task recurs the next day, a weekly task in seven days, a late task recurs from today instead of the past, an early one keeps its future schedule, a one-off task does not recur, and completing twice does not create a duplicate.
@@ -116,7 +130,7 @@ These matter because each one covers a rule where a bug would silently give the 
 - How confident are you that your scheduler works correctly?
 - What edge cases would you test next if you had more time?
 
-I am fairly confident in the scheduling logic, since all 47 tests pass and the `main.py` demo behaves as expected. I am less sure of the Streamlit layer, which I have not tested automatically. With more time I would test overlapping durations, and recurring tasks across more calendar edge cases. Invalid times, priorities and frequencies are rejected with `ValueError`, and completed tasks no longer trigger conflict warnings.
+I am fairly confident in the scheduling logic, since all 63 tests pass and the `main.py` demo behaves as expected. I am less sure of the Streamlit layer, which I have not tested automatically. With more time I would test overlapping durations, and recurring tasks across more calendar edge cases. Invalid times, priorities and frequencies are rejected with `ValueError`, and completed tasks no longer trigger conflict warnings.
 
 ---
 
