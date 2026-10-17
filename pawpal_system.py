@@ -6,6 +6,10 @@ from datetime import date, datetime, timedelta
 from typing import Optional
 
 
+FREQUENCIES = ("once", "daily", "weekly")
+PRIORITIES = ("low", "medium", "high")
+
+
 @dataclass
 class Task:
     description: str
@@ -16,8 +20,12 @@ class Task:
     priority: str = "medium"  # "low", "medium", or "high"
 
     def __post_init__(self) -> None:
-        """Normalize time to zero-padded HH:MM and reject invalid times."""
+        """Normalize time to zero-padded HH:MM and reject invalid field values."""
         self.time = datetime.strptime(self.time, "%H:%M").strftime("%H:%M")
+        if self.frequency not in FREQUENCIES:
+            raise ValueError(f"frequency must be one of {FREQUENCIES}, got {self.frequency!r}")
+        if self.priority not in PRIORITIES:
+            raise ValueError(f"priority must be one of {PRIORITIES}, got {self.priority!r}")
 
     def mark_complete(self) -> None:
         """Mark this task as completed."""
@@ -96,7 +104,9 @@ class Scheduler:
         return tasks
 
     def detect_conflicts(self) -> list[str]:
-        """Return a warning for each date/time slot holding more than one task.
+        """Return a warning for each date/time slot holding more than one open task.
+
+        Completed tasks are ignored, since they no longer need scheduling.
 
         Lightweight strategy: group tasks by (due_date, time) in one pass and warn
         about any group larger than one. It covers tasks for the same pet or for
@@ -106,6 +116,8 @@ class Scheduler:
         slots: defaultdict[tuple[date, str], list[str]] = defaultdict(list)
         for pet in self.owner.pets:
             for t in pet.tasks:
+                if t.completed:
+                    continue
                 slots[(t.due_date, t.time)].append(f"{pet.name}: {t.description}")
         return [
             f"Conflict at {time} on {due}: {', '.join(entries)}"

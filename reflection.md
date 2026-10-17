@@ -103,7 +103,7 @@ The most helpful prompts were small and specific, such as "draft two simple test
 - What behaviors did you test?
 - Why were these tests important?
 
-I wrote 20 tests in `tests/test_pawpal.py` for the four target features:
+I wrote 47 tests in `tests/test_pawpal.py` for the four target features:
 - **Sorting:** times like `"9:00"` are normalized so they sort correctly, invalid times are rejected, and same-time tasks order by priority.
 - **Filtering:** by pet name (case-insensitive), by completion status, and by both.
 - **Recurring tasks:** a daily task recurs the next day, a weekly task in seven days, a late task recurs from today instead of the past, an early one keeps its future schedule, a one-off task does not recur, and completing twice does not create a duplicate.
@@ -116,7 +116,7 @@ These matter because each one covers a rule where a bug would silently give the 
 - How confident are you that your scheduler works correctly?
 - What edge cases would you test next if you had more time?
 
-I am fairly confident in the scheduling logic, since all 20 tests pass and the `main.py` demo behaves as expected. I am less sure of the Streamlit layer, which I have not tested automatically. With more time I would test overlapping durations, completed tasks still counting toward a conflict, month-end and year-end dates for recurring tasks, removing a task from a pet, and invalid `priority` or `frequency` values, which are not validated yet.
+I am fairly confident in the scheduling logic, since all 47 tests pass and the `main.py` demo behaves as expected. I am less sure of the Streamlit layer, which I have not tested automatically. With more time I would test overlapping durations, and recurring tasks across more calendar edge cases. Invalid times, priorities and frequencies are rejected with `ValueError`, and completed tasks no longer trigger conflict warnings.
 
 ---
 
@@ -132,7 +132,7 @@ Keeping all scheduling decisions in `Scheduler` while `Task`, `Pet` and `Owner` 
 
 - If you had another iteration, what would you improve or redesign?
 
-I would add task durations so conflict detection can find overlapping ranges, validate `priority` and `frequency`, and show overdue tasks in the schedule. I would also add an automated test for the Streamlit flow.
+I would add task durations so conflict detection can find overlapping ranges, show overdue tasks in the schedule. I would also add an automated test for the Streamlit flow.
 
 **c. Key takeaway**
 

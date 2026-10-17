@@ -108,21 +108,35 @@ Filtered: Rex, pending:
 
 ## 🧪 Testing PawPal+
 
+Run the full suite from the project root:
+
 ```bash
-# Run the full test suite:
-pytest
-
-# Run with coverage:
-pytest --cov
+python -m pytest
 ```
 
-Sample test output:
+**What the tests cover** (`tests/test_pawpal.py`, 47 tests):
+
+- **Sorting:** chronological order, zero-padded time normalization, priority tie-breaks, stable order, empty input and `00:00`/`23:59` boundaries.
+- **Filtering:** by pet (case-insensitive), by completion status, by both, and for pets or owners with no tasks.
+- **Recurring tasks:** daily (+1 day) and weekly (+7 days) next occurrences, late and early completion, chained and repeated completion, and month, year and leap-day rollover.
+- **Conflict detection:** same pet, different pets, three-way clashes, separate clashes, different dates, and completed tasks ignored.
+- **Today's schedule and validation:** only open tasks due today appear; invalid time, frequency and priority raise `ValueError`.
+
+Sample output of a successful run:
 
 ```
-20 passed in 0.02s
+============================= test session starts ==============================
+platform darwin -- Python 3.13.14, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/soh/Documents/personal/learning/codepath/ai110-module2show-pawpal-starter
+plugins: platformdirs-4.12.3, anyio-4.15.1
+collected 47 items
+
+tests/test_pawpal.py ...............................................     [100%]
+
+============================== 47 passed in 0.04s ==============================
 ```
 
-The 20 tests cover time normalization and validation, priority tie-breaks, filtering by pet and status, recurring daily/weekly dates (including late, early and repeat completion), and conflicts for one pet, several pets and different dates.
+**Confidence level: ★★★★☆ (4/5).** All 47 tests pass and cover each scheduling rule, including the date edge cases. I stop at four stars because conflicts only compare exact start times (no durations) and the Streamlit UI has no automated tests.
 
 ## 📐 Smarter Scheduling
 
@@ -130,7 +144,7 @@ The 20 tests cover time normalization and validation, priority tie-breaks, filte
 |---------|-----------|-------|
 | Task sorting | `Scheduler.sort_by_time()`, `Scheduler.get_todays_schedule()` | Sorts by `"HH:MM"` (times are normalized to zero-padded form in `Task.__post_init__`, invalid times raise `ValueError`); ties go to the higher priority. |
 | Filtering | `Scheduler.filter_tasks(pet_name, completed)` | Filter by pet name (case-insensitive), completion status, or both. |
-| Conflict handling | `Scheduler.detect_conflicts()` | One pass groups tasks by date and time and returns a warning string per clash, naming each pet. Works for one pet or several; it never raises. Only exact start times are compared, not durations. |
+| Conflict handling | `Scheduler.detect_conflicts()` | One pass groups open (not completed) tasks by date and time and returns a warning string per clash, naming each pet. Works for one pet or several; it never raises. Only exact start times are compared, not durations. |
 | Recurring tasks | `Scheduler.mark_task_complete()` | Completing a `daily`/`weekly` task adds a copy due `max(due_date, today)` + 1 or 7 days (`timedelta`). Completing a task twice does not duplicate it. |
 
 ## 📸 Demo Walkthrough
